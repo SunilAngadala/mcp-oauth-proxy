@@ -553,6 +553,36 @@ app.post('/oauth/token', (req, res) => {
 const DOWNSTREAM_URL = process.env.DOWNSTREAM_MCP_URL;
 const LTPA_TOKEN = process.env.LTPA_TOKEN;
 
+// Helper: Parse SSE-formatted downstream string responses or raw JSON
+function parseDownstreamResponse(data) {
+  if (!data) return {};
+  if (typeof data === 'object') {
+    return data;
+  }
+  if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (trimmed.startsWith('event:')) {
+      // Find the data: line and parse the JSON payload
+      const lines = trimmed.split('\n');
+      const dataLine = lines.find(line => line.startsWith('data: '));
+      if (dataLine) {
+        try {
+          return JSON.parse(dataLine.substring(6).trim());
+        } catch (e) {
+          // Return as raw string if JSON parsing fails
+          return dataLine.substring(6).trim();
+        }
+      }
+    }
+    try {
+      return JSON.parse(trimmed);
+    } catch (e) {
+      return trimmed;
+    }
+  }
+  return data;
+}
+
 // Helper: Check authentication header or query parameter
 function isAuthenticated(req, res, next) {
   let token;
@@ -586,7 +616,8 @@ app.post('/mcp', isAuthenticated, async (req, res) => {
       httpsAgent: agent
     });
 
-    res.json(response.data);
+    const parsedData = parseDownstreamResponse(response.data);
+    res.json(parsedData);
   } catch (error) {
     console.error('Downstream MCP request failed:', error.message);
     const statusCode = error.response ? error.response.status : 500;
@@ -639,7 +670,8 @@ app.post('/mcp/message', isAuthenticated, async (req, res) => {
       httpsAgent: agent
     });
 
-    clientResponseStream.write(`event: message\ndata: ${JSON.stringify(response.data)}\n\n`);
+    const parsedData = parseDownstreamResponse(response.data);
+    clientResponseStream.write(`event: message\ndata: ${JSON.stringify(parsedData)}\n\n`);
     res.status(202).send('Accepted');
   } catch (error) {
     console.error('SSE Message forwarding failed:', error.message);
@@ -684,7 +716,8 @@ app.get('/openapi.json', async (req, res) => {
       httpsAgent: agent
     });
 
-    const tools = listResponse.data.result?.tools || [];
+    const parsedData = parseDownstreamResponse(listResponse.data);
+    const tools = parsedData.result?.tools || [];
 
     // Map each tool to a path in OpenAPI spec
     const paths = {};
@@ -787,12 +820,14 @@ app.post('/api/tools/call/:toolName', isAuthenticated, async (req, res) => {
       httpsAgent: agent
     });
 
+    const parsedData = parseDownstreamResponse(response.data);
+
     // Check JSON-RPC response format and extract content
-    if (response.data.error) {
-      return res.status(400).json(response.data.error);
+    if (parsedData.error) {
+      return res.status(400).json(parsedData.error);
     }
 
-    res.json(response.data.result || {});
+    res.json(parsedData.result || {});
   } catch (error) {
     console.error(`Error translating tool call ${toolName}:`, error.message);
     const statusCode = error.response ? error.response.status : 500;
