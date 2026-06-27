@@ -73,7 +73,7 @@ node test-sse.js
 ### 1. Claude Web (Custom Connectors)
 In your `claude.ai` dashboard under **Connectors** -> **Add Custom Connector**:
 - **Name**: `MCP OAuth Proxy`
-- **Remote MCP server URL**: `https://<your-render-url>/mcp/sse`
+- **Remote MCP server URL**: `https://mcp-oauth-proxy-m3py.onrender.com/mcp/sse`
 - **OAuth Client ID**: `mcp-client-id`
 - **OAuth Client Secret**: `mcp-client-secret`
 Click **Add**, complete the OAuth consent screen prompt, and Claude will automatically link the downstream tools.
@@ -81,7 +81,7 @@ Click **Add**, complete the OAuth consent screen prompt, and Claude will automat
 ### 2. Claude Desktop (Local Bridge)
 1. Request a client credentials token:
    ```bash
-   curl -X POST https://<your-render-url>/oauth/token \
+   curl -X POST https://mcp-oauth-proxy-m3py.onrender.com/oauth/token \
      -H "Content-Type: application/json" \
      -d '{"grant_type":"client_credentials","client_id":"mcp-client-id","client_secret":"mcp-client-secret"}'
    ```
@@ -97,7 +97,7 @@ Click **Add**, complete the OAuth consent screen prompt, and Claude will automat
          "args": [
            "-y",
            "@modelcontextprotocol/client-cli",
-           "https://<your-render-url>/mcp/sse?token=YOUR_ACCESS_TOKEN"
+           "https://mcp-oauth-proxy-m3py.onrender.com/mcp/sse?token=YOUR_ACCESS_TOKEN"
          ]
        }
      }
@@ -107,12 +107,12 @@ Click **Add**, complete the OAuth consent screen prompt, and Claude will automat
 
 ### 3. OpenAI ChatGPT (Custom Actions)
 In your Custom GPT configure editor under **Actions**:
-1. Click **Import from URL** and paste: `https://<your-render-url>/openapi.json`.
+1. Click **Import from URL** and paste: `https://mcp-oauth-proxy-m3py.onrender.com/openapi.json`.
 2. Under **Authentication**, select **OAuth**:
    - **Client ID**: `mcp-client-id`
    - **Client Secret**: `mcp-client-secret`
-   - **Authorization URL**: `https://<your-render-url>/oauth/authorize`
-   - **Token URL**: `https://<your-render-url>/oauth/token`
+   - **Authorization URL**: `https://mcp-oauth-proxy-m3py.onrender.com/oauth/authorize`
+   - **Token URL**: `https://mcp-oauth-proxy-m3py.onrender.com/oauth/token`
 3. Save the GPT and trigger a tool call to start the OAuth sign-in flow.
 
 ---
