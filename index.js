@@ -6,6 +6,7 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -609,7 +610,10 @@ app.get('/mcp/sse', isAuthenticated, (req, res) => {
   sseConnections.set(connectionId, res);
 
   // Send the message POST endpoint URL to the client
-  res.write(`event: endpoint\ndata: /mcp/message?connection_id=${connectionId}\n\n`);
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const baseUrl = `${protocol}://${host}`;
+  res.write(`event: endpoint\ndata: ${baseUrl}/mcp/message?connection_id=${connectionId}\n\n`);
 
   req.on('close', () => {
     sseConnections.delete(connectionId);
