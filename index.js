@@ -624,7 +624,7 @@ function handleGatewayToolCall(name, args) {
     return {
       orderId: cleanArgs.orderId || 'ORD-12345',
       status: 'Shipped',
-      estimatedDelivery: '2026-06-30',
+      estimatedDelivery: '2026-07-12',
       items: [
         { itemId: '345673', name: 'Classic Crewneck Sweater', quantity: 1, price: 49.99 }
       ],
@@ -638,10 +638,10 @@ function handleGatewayToolCall(name, args) {
       carrier: 'FedEx',
       status: 'In Transit',
       currentLocation: 'Memphis, TN Hub',
-      estimatedDelivery: '2026-06-30',
+      estimatedDelivery: '2026-07-12',
       history: [
-        { timestamp: '2026-06-27T10:00:00Z', location: 'Memphis, TN Hub', activity: 'Arrived at FedEx Location' },
-        { timestamp: '2026-06-27T04:30:00Z', location: 'Indianapolis, IN Hub', activity: 'Departed FedEx Location' }
+        { timestamp: '2026-07-08T10:00:00Z', location: 'Memphis, TN Hub', activity: 'Arrived at FedEx Location' },
+        { timestamp: '2026-07-07T16:30:00Z', location: 'Indianapolis, IN Hub', activity: 'Departed FedEx Location' }
       ]
     };
   }
