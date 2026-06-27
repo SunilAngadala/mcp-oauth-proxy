@@ -583,6 +583,71 @@ function parseDownstreamResponse(data) {
   return data;
 }
 
+const GATEWAY_TOOLS = [
+  {
+    name: 'track_orders',
+    description: 'Track status and details of a customer order.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        orderId: {
+          type: 'string',
+          description: 'The unique order identifier (e.g. ORD-12345)'
+        }
+      },
+      required: ['orderId']
+    }
+  },
+  {
+    name: 'track_deliveries',
+    description: 'Track the real-time shipping/delivery status and checkpoint details.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        trackingNumber: {
+          type: 'string',
+          description: 'The carrier tracking number (e.g. 123456789012)'
+        }
+      },
+      required: ['trackingNumber']
+    }
+  }
+];
+
+function isGatewayTool(name) {
+  return name === 'track_orders' || name === 'track_deliveries';
+}
+
+function handleGatewayToolCall(name, args) {
+  const cleanArgs = args || {};
+  if (name === 'track_orders') {
+    return {
+      orderId: cleanArgs.orderId || 'ORD-12345',
+      status: 'Shipped',
+      estimatedDelivery: '2026-06-30',
+      items: [
+        { itemId: '345673', name: 'Classic Crewneck Sweater', quantity: 1, price: 49.99 }
+      ],
+      carrier: 'FedEx',
+      trackingNumber: '123456789012'
+    };
+  }
+  if (name === 'track_deliveries') {
+    return {
+      trackingNumber: cleanArgs.trackingNumber || '123456789012',
+      carrier: 'FedEx',
+      status: 'In Transit',
+      currentLocation: 'Memphis, TN Hub',
+      estimatedDelivery: '2026-06-30',
+      history: [
+        { timestamp: '2026-06-27T10:00:00Z', location: 'Memphis, TN Hub', activity: 'Arrived at FedEx Location' },
+        { timestamp: '2026-06-27T04:30:00Z', location: 'Indianapolis, IN Hub', activity: 'Departed FedEx Location' }
+      ]
+    };
+  }
+  throw new Error(`Unknown gateway tool ${name}`);
+}
+
 // Helper: Check authentication header or query parameter
 function isAuthenticated(req, res, next) {
   let token;
@@ -607,6 +672,41 @@ function isAuthenticated(req, res, next) {
 // Proxied JSON-RPC endpoint
 app.post('/mcp', isAuthenticated, async (req, res) => {
   try {
+    // 1. Intercept tools/list to merge custom tools
+    if (req.body && req.body.method === 'tools/list') {
+      const response = await axios.post(DOWNSTREAM_URL, req.body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/event-stream',
+          'LtpaToken': LTPA_TOKEN
+        },
+        httpsAgent: agent
+      });
+      const parsedData = parseDownstreamResponse(response.data);
+      if (parsedData.result && Array.isArray(parsedData.result.tools)) {
+        parsedData.result.tools = [...parsedData.result.tools, ...GATEWAY_TOOLS];
+      }
+      return res.json(parsedData);
+    }
+
+    // 2. Intercept tools/call for custom gateway tools
+    if (req.body && req.body.method === 'tools/call' && req.body.params && isGatewayTool(req.body.params.name)) {
+      const result = handleGatewayToolCall(req.body.params.name, req.body.params.arguments);
+      return res.json({
+        jsonrpc: '2.0',
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        },
+        id: req.body.id
+      });
+    }
+
+    // 3. Fallback: Proxy everything else to downstream
     const response = await axios.post(DOWNSTREAM_URL, req.body, {
       headers: {
         'Content-Type': 'application/json',
@@ -661,6 +761,43 @@ app.post('/mcp/message', isAuthenticated, async (req, res) => {
   }
 
   try {
+    // 1. Intercept tools/list to merge custom tools
+    if (req.body && req.body.method === 'tools/list') {
+      const response = await axios.post(DOWNSTREAM_URL, req.body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/event-stream',
+          'LtpaToken': LTPA_TOKEN
+        },
+        httpsAgent: agent
+      });
+      const parsedData = parseDownstreamResponse(response.data);
+      if (parsedData.result && Array.isArray(parsedData.result.tools)) {
+        parsedData.result.tools = [...parsedData.result.tools, ...GATEWAY_TOOLS];
+      }
+      clientResponseStream.write(`event: message\ndata: ${JSON.stringify(parsedData)}\n\n`);
+      return res.status(202).send('Accepted');
+    }
+
+    // 2. Intercept tools/call for custom gateway tools
+    if (req.body && req.body.method === 'tools/call' && req.body.params && isGatewayTool(req.body.params.name)) {
+      const result = handleGatewayToolCall(req.body.params.name, req.body.params.arguments);
+      clientResponseStream.write(`event: message\ndata: ${JSON.stringify({
+        jsonrpc: '2.0',
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        },
+        id: req.body.id
+      })}\n\n`);
+      return res.status(202).send('Accepted');
+    }
+
+    // 3. Fallback: Proxy everything else to downstream
     const response = await axios.post(DOWNSTREAM_URL, req.body, {
       headers: {
         'Content-Type': 'application/json',
@@ -717,7 +854,8 @@ app.get('/openapi.json', async (req, res) => {
     });
 
     const parsedData = parseDownstreamResponse(listResponse.data);
-    const tools = parsedData.result?.tools || [];
+    const downstreamTools = parsedData.result?.tools || [];
+    const tools = [...downstreamTools, ...GATEWAY_TOOLS];
 
     // Map each tool to a path in OpenAPI spec
     const paths = {};
@@ -801,6 +939,11 @@ app.post('/api/tools/call/:toolName', isAuthenticated, async (req, res) => {
   const toolArgs = req.body;
 
   try {
+    if (isGatewayTool(toolName)) {
+      const result = handleGatewayToolCall(toolName, toolArgs);
+      return res.json(result);
+    }
+
     const rpcPayload = {
       jsonrpc: '2.0',
       id: `gpt-call-${generateRandomString(8)}`,
