@@ -114,3 +114,23 @@ In your Custom GPT configure editor under **Actions**:
    - **Authorization URL**: `https://<your-render-url>/oauth/authorize`
    - **Token URL**: `https://<your-render-url>/oauth/token`
 3. Save the GPT and trigger a tool call to start the OAuth sign-in flow.
+
+---
+
+## Live Demo Custom Tools (Mock Tracking)
+
+For testing and demonstration, the gateway integrates two custom tools (`track_orders` and `track_deliveries`) locally. These tools return dynamic, realistic mock data for your demo from **July 7 to July 20, 2026**.
+
+You can trigger different delivery and order scenarios in Claude or ChatGPT by using key phrases or codes in your query:
+
+### 1. 🟢 On Time (Default)
+Returns an "On Time" status with delivery set to **July 12, 2026**.
+- **Trigger**: Any standard order number (e.g., `ORD-12345` or general text).
+
+### 2. 🟡 Delayed
+Returns a "Delayed" status with the delivery pushed from July 12th to **July 16th** due to weather.
+- **Trigger**: Contains the word `delay` or code `222` (e.g., `ORD-delay`, `222`).
+
+### 3. 🔴 Misplaced / Lost
+Returns a "Misplaced" status with an "Unknown" delivery date and system alert flags.
+- **Trigger**: Contains the word `lost`, `misplaced`, or code `333` (e.g., `ORD-lost`, `333`).
