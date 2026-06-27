@@ -1,0 +1,16 @@
+{
+  "name": "mcp-oauth-proxy",
+  "version": "1.0.0",
+  "description": "An OAuth 2.0 / 2.1 Proxy for HTTP Model Context Protocol (MCP) servers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
