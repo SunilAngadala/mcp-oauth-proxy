@@ -620,23 +620,98 @@ function isGatewayTool(name) {
 
 function handleGatewayToolCall(name, args) {
   const cleanArgs = args || {};
+  
   if (name === 'track_orders') {
+    const orderId = String(cleanArgs.orderId || 'ORD-12345');
+    const lowerId = orderId.toLowerCase();
+
+    // 1. Misplaced case
+    if (lowerId.includes('lost') || lowerId.includes('misplaced') || lowerId.includes('333')) {
+      return {
+        orderId: orderId,
+        status: 'Misplaced',
+        estimatedDelivery: 'Unknown',
+        items: [
+          { itemId: '345673', name: 'Classic Crewneck Sweater', quantity: 1, price: 49.99 }
+        ],
+        carrier: 'FedEx',
+        trackingNumber: '123456789012',
+        alert: 'Investigation opened: Package is currently misplaced. Please contact support if not updated in 24 hours.'
+      };
+    }
+
+    // 2. Delayed case
+    if (lowerId.includes('delay') || lowerId.includes('222')) {
+      return {
+        orderId: orderId,
+        status: 'Delayed',
+        originalDelivery: '2026-07-12',
+        newDelivery: '2026-07-16',
+        items: [
+          { itemId: '345673', name: 'Classic Crewneck Sweater', quantity: 1, price: 49.99 }
+        ],
+        carrier: 'FedEx',
+        trackingNumber: '123456789012',
+        delayReason: 'Severe weather delay at Memphis Hub.'
+      };
+    }
+
+    // 3. Default: On Time case
     return {
-      orderId: cleanArgs.orderId || 'ORD-12345',
-      status: 'Shipped',
+      orderId: orderId,
+      status: 'On Time',
       estimatedDelivery: '2026-07-12',
       items: [
         { itemId: '345673', name: 'Classic Crewneck Sweater', quantity: 1, price: 49.99 }
       ],
       carrier: 'FedEx',
-      trackingNumber: '123456789012'
+      trackingNumber: '123456789012',
+      statusMessage: 'Package is on track and moving through the network.'
     };
   }
+
   if (name === 'track_deliveries') {
+    const trackingNumber = String(cleanArgs.trackingNumber || '123456789012');
+    const lowerTrack = trackingNumber.toLowerCase();
+
+    // 1. Misplaced delivery
+    if (lowerTrack.includes('lost') || lowerTrack.includes('misplaced') || lowerTrack.includes('333')) {
+      return {
+        trackingNumber: trackingNumber,
+        carrier: 'FedEx',
+        status: 'Pending Investigation',
+        currentLocation: 'Unknown (Last scanned: Memphis, TN Hub)',
+        estimatedDelivery: 'Unknown',
+        history: [
+          { timestamp: '2026-07-09T14:00:00Z', location: 'System Alert', activity: 'Investigation opened for misplaced package' },
+          { timestamp: '2026-07-08T10:00:00Z', location: 'Memphis, TN Hub', activity: 'Arrived at FedEx Location' },
+          { timestamp: '2026-07-07T16:30:00Z', location: 'Indianapolis, IN Hub', activity: 'Departed FedEx Location' }
+        ]
+      };
+    }
+
+    // 2. Delayed delivery
+    if (lowerTrack.includes('delay') || lowerTrack.includes('222')) {
+      return {
+        trackingNumber: trackingNumber,
+        carrier: 'FedEx',
+        status: 'Delayed',
+        currentLocation: 'Memphis, TN Hub',
+        estimatedDelivery: '2026-07-16',
+        delayReason: 'Severe weather delay at Memphis Hub.',
+        history: [
+          { timestamp: '2026-07-09T08:00:00Z', location: 'Memphis, TN Hub', activity: 'Delayed due to weather conditions' },
+          { timestamp: '2026-07-08T10:00:00Z', location: 'Memphis, TN Hub', activity: 'Arrived at FedEx Location' },
+          { timestamp: '2026-07-07T16:30:00Z', location: 'Indianapolis, IN Hub', activity: 'Departed FedEx Location' }
+        ]
+      };
+    }
+
+    // 3. Default: On Time delivery
     return {
-      trackingNumber: cleanArgs.trackingNumber || '123456789012',
+      trackingNumber: trackingNumber,
       carrier: 'FedEx',
-      status: 'In Transit',
+      status: 'In Transit (On Time)',
       currentLocation: 'Memphis, TN Hub',
       estimatedDelivery: '2026-07-12',
       history: [
